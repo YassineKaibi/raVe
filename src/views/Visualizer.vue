@@ -11,7 +11,7 @@
       >
         <nav-bar />
         <vis-settings ref="visSettings" :visualizer="visualizer" />
-        <audio-controls :audio="audio" :microphone="microphone" :playlist="playlist" />
+        <audio-controls :audio="audio" :desktopAudio="desktopAudio" :microphone="microphone" :playlist="playlist" />
       </div>
       <audio-dropzone :playlist="playlist" />
       <div v-if="settings.showFPS" class="vis__fps">{{ visualizer.fps }}</div>
@@ -19,9 +19,11 @@
     <modal :show="showWelcome" @click="hideWelcome">
       <div class="vis__welcome">
         <h2>Welcome to <rave /></h2>
-        <p>
-          Drag and drop audio files or toggle microphone to begin. To use with Spotify or YouTube,
-          see <router-link to="setup">setup</router-link>
+        <p v-if="!isElectron">
+          Drag and drop audio files or toggle microphone to begin.
+        </p>
+        <p v-else>
+          Drag and drop audio files or enable desktop audio to visualize system sounds.
         </p>
         <p>
           <strong>Tip:</strong> If <rave />&nbsp;is slow or choppy,
@@ -64,6 +66,7 @@ import NavBar from '@/components/NavBar'
 import VisSettings from '@/components/VisSettings'
 
 import AudioAnalyzer from '@/js/AudioAnalyzer'
+import DesktopAudio from '@/js/DesktopAudio'
 import Microphone from '@/js/Microphone'
 import Playlist from '@/js/Playlist'
 
@@ -74,6 +77,7 @@ export default {
     acx: null,
     analyzer: null,
     audio: null,
+    desktopAudio: null,
     microphone: null,
     playlist: null,
     source: null,
@@ -103,6 +107,10 @@ export default {
     showControls() {
       if (!this.visualizer) return true
       return this.userActive || this.source.paused
+    },
+
+    isElectron() {
+      return typeof window !== 'undefined' && window.electronAPI && window.electronAPI.isElectron
     }
   },
 
@@ -187,17 +195,21 @@ export default {
     src.connect(pt)
 
     this.playlist = new Playlist(this.audio)
+    this.desktopAudio = new DesktopAudio(this.acx, pt)
     this.microphone = new Microphone(this.audio, this.acx, pt)
     this.analyzer = new AudioAnalyzer(this.acx, pt)
 
     const audio = this.audio
+    const desktopAudio = this.desktopAudio
     const microphone = this.microphone
-    this.microphone.toggle()
+
+    // Don't auto-start - let user click the button
+    // (Auto-starting can cause race conditions during page load)
 
     this.source = { paused: false }
     setTimeout(() => {
       Object.defineProperty(this.source, 'paused', {
-        get: () => audio.paused && !microphone.enabled
+        get: () => audio.paused && !microphone.enabled && !desktopAudio.enabled
       })
     }, 2000)
   },
@@ -239,6 +251,11 @@ export default {
 
     this.visualizer.destroy()
     delete this.visualizer
+
+    if (this.desktopAudio) {
+      this.desktopAudio.stop()
+      delete this.desktopAudio
+    }
 
     this.audio.pause()
     this.audio.src = ''

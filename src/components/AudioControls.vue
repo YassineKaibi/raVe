@@ -1,5 +1,5 @@
 <template>
-  <div class="audio-controls" :class="{ 'mic-on': microphone.enabled }">
+  <div class="audio-controls" :class="{ 'mic-on': microphone.enabled || (desktopAudio && desktopAudio.enabled) }">
     <div class="button audio-control" @click="audio.currentTime = 0">
       <i class="material-icons">skip_previous</i>
     </div>
@@ -11,7 +11,11 @@
       <i class="material-icons">skip_next</i>
     </div>
     <div class="title">{{ title }}</div>
-    <div class="button microphone" @click="microphone.toggle()">
+    <div v-if="isElectron" class="button desktop-audio" @click="desktopAudio.toggle()">
+      <i v-show="!desktopAudio.enabled" class="material-icons off">speaker</i>
+      <i v-show="desktopAudio.enabled" class="material-icons">volume_up</i>
+    </div>
+    <div v-else class="button microphone" @click="microphone.toggle()">
       <i v-show="!microphone.enabled" class="material-icons off">mic_off</i>
       <i v-show="microphone.enabled" class="material-icons">mic</i>
     </div>
@@ -51,6 +55,11 @@ export default {
       type: Object,
       required: true
     },
+    desktopAudio: {
+      type: Object,
+      required: false,
+      default: null
+    },
     microphone: {
       type: Object,
       required: true
@@ -68,8 +77,14 @@ export default {
 
   computed: {
     title() {
+      if (this.desktopAudio && this.desktopAudio.enabled) return 'desktop audio on'
       if (this.microphone.enabled) return 'microphone on'
+      if (this.desktopAudio) return this.audioTitle || 'drop audio or enable desktop audio →'
       else return this.audioTitle || 'drop audio or enable mic →'
+    },
+
+    isElectron() {
+      return this.desktopAudio !== null
     }
   },
 
@@ -101,6 +116,7 @@ export default {
 
     stopMicOnPlay() {
       if (this.microphone.enabled) this.microphone.toggle()
+      if (this.desktopAudio && this.desktopAudio.enabled) this.desktopAudio.toggle()
     },
 
     scrub(e) {

@@ -1,4 +1,6 @@
 module.exports = {
+  publicPath: process.env.IS_ELECTRON ? './' : '/',
+
   configureWebpack: {
     module: {
       rules: [
