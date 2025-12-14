@@ -14,6 +14,53 @@ function poly(n = 0, a = 0, r = 1) {
   return { x: r * cos(a), y: r * sin(a) }
 }
 
+// HDR-enhanced color generation for Display P3
+function hdrColor(hue, saturation, lightness, boost = 1.3) {
+  // Convert HSL to RGB, then boost for HDR
+  const h = hue / 60
+  const s = saturation / 100
+  const l = lightness / 100
+
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs((h % 2) - 1))
+  const m = l - c / 2
+
+  let r, g, b
+  if (h < 1) {
+    r = c
+    g = x
+    b = 0
+  } else if (h < 2) {
+    r = x
+    g = c
+    b = 0
+  } else if (h < 3) {
+    r = 0
+    g = c
+    b = x
+  } else if (h < 4) {
+    r = 0
+    g = x
+    b = c
+  } else if (h < 5) {
+    r = x
+    g = 0
+    b = c
+  } else {
+    r = c
+    g = 0
+    b = x
+  }
+
+  // Add m and boost for HDR (values can exceed 1.0 in P3)
+  r = Math.min((r + m) * boost, 1.5)
+  g = Math.min((g + m) * boost, 1.5)
+  b = Math.min((b + m) * boost, 1.5)
+
+  // Return Display P3 color
+  return `color(display-p3 ${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)})`
+}
+
 export default class extends Visualizer {
   constructor(options, settings) {
     super(options, settings)
@@ -34,8 +81,20 @@ export default class extends Visualizer {
     ])
 
     this.buffer = this.createBuffer()
-    this.buf = this.buffer.getContext('2d', { alpha: false })
-    this.ctx = this.canvas.getContext('2d', { alpha: false })
+
+    // Check for HDR support and configure canvas context
+    const canvasOptions = { alpha: false }
+
+    // Try to enable HDR with Display P3 color space (wider gamut)
+    // Falls back to sRGB if not supported
+    try {
+      canvasOptions.colorSpace = 'display-p3'
+    } catch (e) {
+      console.log('HDR/Display P3 not supported, using sRGB')
+    }
+
+    this.buf = this.buffer.getContext('2d', canvasOptions)
+    this.ctx = this.canvas.getContext('2d', canvasOptions)
     this.bassbuf = new Array(15).fill(0)
     super.render()
   }
@@ -66,7 +125,8 @@ export default class extends Visualizer {
     } else {
       let hue = this.tick / 10 + 10 * sin(this.tick / 10)
       let l = (55 - floor(20 * bass)) / this.speed
-      ctx.strokeStyle = `hsl(${hue % 360}, 100%, ${l}%)`
+      // Use HDR color for Display P3 wide gamut
+      ctx.strokeStyle = hdrColor(hue % 360, 100, l, 1.4)
       ctx.globalCompositeOperation = 'lighter'
     }
 
@@ -156,7 +216,8 @@ export default class extends Visualizer {
     } else {
       let hue = this.tick / 10 + 10 + 10 * sin(this.tick / 10)
       let l = (52 + floor(bass * 5)) / this.speed
-      ctx.fillStyle = `hsl(${hue % 360}, 100%, ${l}%)`
+      // Use HDR color for Display P3 wide gamut
+      ctx.fillStyle = hdrColor(hue % 360, 100, l, 1.4)
       ctx.globalCompositeOperation = 'lighter'
     }
 
