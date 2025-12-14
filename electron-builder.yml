@@ -1,0 +1,30 @@
+appId: com.rave.audiovisualizer
+productName: raVe
+copyright: Copyright © 2025
+
+directories:
+  output: dist_electron
+  buildResources: public
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: public/favicon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: raVe
+  deleteAppDataOnUninstall: false
+
+publish: null
